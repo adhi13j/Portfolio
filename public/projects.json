@@ -1,0 +1,34 @@
+[
+  {
+    "id": "carbon-school",
+    "title": "Carbon School",
+    "repoUrl": "https://github.com/placeholder/carbon-school",
+    "summary": "A school study-material platform with role-based access, built as both a MERN web app and a Flutter mobile app.",
+    "stack": ["React", "Node.js", "Express", "MongoDB", "Flutter", "Supabase"],
+    "image": "/projects/carbon-school.png"
+  },
+  {
+    "id": "ai-chat-assistant",
+    "title": "AI Chat Assistant",
+    "repoUrl": "https://github.com/placeholder/ai-chat-assistant",
+    "summary": "An intelligent chatbot application powered by large language models, featuring context-aware conversations and multi-turn dialogue support.",
+    "stack": ["Python", "FastAPI", "React", "OpenAI", "PostgreSQL"],
+    "image": "/projects/ai-chat.png"
+  },
+  {
+    "id": "ecommerce-platform",
+    "title": "E-Commerce Platform",
+    "repoUrl": "https://github.com/placeholder/ecommerce-platform",
+    "summary": "A full-stack e-commerce solution with product management, shopping cart, payment processing, and order tracking capabilities.",
+    "stack": ["Next.js", "TypeScript", "Stripe", "Prisma", "PostgreSQL"],
+    "image": "/projects/ecommerce.png"
+  },
+  {
+    "id": "realtime-dashboard",
+    "title": "Real-Time Analytics Dashboard",
+    "repoUrl": "https://github.com/placeholder/realtime-dashboard",
+    "summary": "A live data visualization dashboard with interactive charts, WebSocket updates, and customizable widget layouts for monitoring KPIs.",
+    "stack": ["Vue.js", "D3.js", "Node.js", "Socket.io", "Redis"],
+    "image": "/projects/dashboard.png"
+  }
+]
