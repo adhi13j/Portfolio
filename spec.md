@@ -156,6 +156,79 @@ Inside `<Scroll>` (drei's 3D-scroll-linked group) or read via `useScroll()`:
 
 ---
 
+## 5.5 Design Language & Color Scheme
+
+Two distinct but complementary moods: the left half should feel like native **macOS UI** (clean, light, frosted glass, system typography). The right half should feel like a **calm, muted low-poly diorama** (soft desaturated palette, gentle light, not garish/saturated game-asset colors).
+
+### 5.5.1 Left half — "macOS" feel
+CSS variables (add to `index.css` or `App.module.css` root):
+```css
+--bg-page: #f5f5f7;          /* Apple system light gray, page background */
+--bg-card: #ffffff;
+--border-subtle: rgba(0, 0, 0, 0.06);
+--shadow-card: 0 1px 2px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.06);
+--text-primary: #1d1d1f;
+--text-secondary: #6e6e73;
+--accent: #0071e3;           /* Apple system blue, used for links/hover */
+--pill-bg: #f0f0f2;
+--pill-text: #48484a;
+--radius-lg: 16px;
+--radius-pill: 999px;
+--font-system: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Helvetica, Arial, sans-serif;
+```
+- Whole left column and navbar use `font-family: var(--font-system)`.
+- Navbar: frosted-glass style — `background: rgba(255,255,255,0.72); backdrop-filter: blur(20px) saturate(180%); border-bottom: 1px solid var(--border-subtle);`
+- Project cards: `background: var(--bg-card); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); border: 1px solid var(--border-subtle);` — subtle lift on hover (`transform: translateY(-2px)`, transition ~150ms ease).
+- Titles: `color: var(--text-primary)`, medium/semibold weight, `color: var(--accent)` only on hover/focus (macOS links aren't blue by default, they go blue on interaction).
+- Summary text: `color: var(--text-secondary)`.
+- Stack badges: `background: var(--pill-bg); color: var(--pill-text); border-radius: var(--radius-pill); font-size: 0.8rem; padding: 4px 10px;`
+- Page background (left column + navbar): `var(--bg-page)`.
+
+### 5.5.2 Right half — "calm low-poly forest" feel
+Add these to `sceneConfig.js` as the single source of truth for scene colors:
+```js
+export const COLOR_SKY_TOP = "#dbe9f0";     // soft pale blue, used for scene background/fog
+export const COLOR_SKY_BOTTOM = "#f3e7d8";  // warm pale cream, subtle gradient feel
+export const COLOR_FOG = "#e3ecec";
+export const FOG_NEAR = 20;
+export const FOG_FAR = 90;
+
+export const COLOR_ROAD = "#cdc3b4";        // warm light stone, not harsh black asphalt
+export const COLOR_ROAD_LINE = "#f5f0e6";   // soft cream centerline
+
+export const COLOR_TRUNK = "#8a6f56";       // muted warm brown
+export const COLOR_FOLIAGE = ["#87a08a", "#a9c3a4", "#c9dcc3"]; // 3 desaturated sage/forest greens, picked randomly per tree for variety
+
+export const COLOR_CAR_BODY = "#e07a5f";    // muted coral-red accent, the one "pop" of color in the scene
+export const COLOR_CAR_CABIN = "#f4a261";   // soft warm amber
+export const COLOR_WHEEL = "#3d3d3d";       // dark muted gray, not pure black
+
+export const COLOR_FLAG_START = "#81b29a";  // muted sage green
+export const COLOR_FLAG_END = "#e07a5f";    // matches car accent, ties start/end together
+
+export const COLOR_SMOKE = "#f4f1ec";       // warm off-white, soft not sooty-black
+export const LIGHT_AMBIENT_COLOR = "#fff1e0";     // warm-tinted ambient, golden-hour feel
+export const LIGHT_DIRECTIONAL_COLOR = "#ffe9c7";
+```
+- `<Canvas>` background / `scene.background` uses `COLOR_SKY_TOP` (or a simple vertical gradient plane behind everything if a true gradient sky is wanted — flat color is an acceptable v1).
+- Add `<fog attach="fog" args={[COLOR_FOG, FOG_NEAR, FOG_FAR]} />` inside the `<Canvas>` — this alone does a lot of work for the "calm" feeling by softening the far tree line and road horizon instead of it hard-cutting off.
+- Foliage cones pick one of the 3 `COLOR_FOLIAGE` values per tree (seeded random, same PRNG as placement) rather than every tree being identical — subtle variety reads as more natural/calm than a uniform green.
+- Lights use the warm-tinted colors above instead of pure white, and keep intensities modest (ambient ~0.7, directional ~0.8) — avoid harsh contrast/shadows, this is a soft-lit diorama, not a dramatic scene.
+- Materials throughout the scene: prefer `MeshStandardMaterial` with `roughness` high (~0.8–1) and `metalness` near 0 — low-poly calm scenes read better matte than shiny/plastic.
+
+### 5.5.3 Wavy blended seam between the two halves
+Rather than a hard vertical line at the 50/50 column boundary, blend the two halves together with a soft wavy seam — this echoes the wavy road motif and stops the white-macOS-panel vs green-forest-panel contrast from looking like two stitched-together apps.
+
+Implementation approach (pure CSS/SVG overlay, does not touch scroll or 3D logic):
+- Add a new absolutely-positioned `<div className="seam">` in `App.jsx`, sitting on top of both columns at the boundary, full viewport height, `z-index` above both halves but below the navbar.
+- Inside it, an inline SVG (`viewBox` matching viewport height) with a single vertical wavy path built from a smooth sine-like curve (reuse a small `Q`/`C` path, 3–4 gentle undulations top to bottom — a fixed amplitude of roughly 40–60px is enough, don't overdo it).
+- The SVG path is used as a `clip-path` (via `clipPath` in the SVG def, referenced by `clip-path: url(#seamClip)`) applied to a thin strip container (~120–160px wide, centered on the 50% boundary) that contains a horizontal gradient blending `--bg-page` (left, macOS gray/white) into `COLOR_FOLIAGE[1]` or `COLOR_SKY_TOP` (right, forest green) from spec §5.5.1/§5.5.2 — so the actual colors blending are pulled from the existing variables/constants, not new ones.
+- Apply a small `filter: blur(6–10px)` to that gradient strip so the seam looks like a soft blended edge rather than a crisp wavy line.
+- Optional, only if it reads as calm rather than distracting: a very slow (20–30s loop) idle `transform: translateY()` oscillation on the wave path for a gentle "breathing" feel — keep it subtle, this is decorative, not another scroll-driven system.
+- This seam is purely decorative CSS/SVG — it must not affect the `<ScrollControls>` page-count math (spec §7) or the sticky right-column layout (spec §5.2).
+
+---
+
 ## 6. The 3D Scene
 
 ### 6.1 Coordinate system & scroll mapping
@@ -182,11 +255,18 @@ Algorithm:
 5. Export the curve object plus a helper `getPointAt(t)` and `getTangentAt(t)` (both wrap the curve's built-in `.getPointAt` / `.getTangentAt`, which take a `t` in `[0,1]` — i.e. directly usable with `scrollProgress`).
 
 ### 6.3 Aligning the end point to the left half's center
-This is the trickiest visual requirement. Approach:
-- The right-half `<Canvas>` camera is fixed (not orbiting) with a known FOV and position (defined in `sceneConfig.js`, e.g. `CAMERA_POSITION`, `CAMERA_LOOKAT`).
-- Since the canvas only covers the right half of the screen, and we want the road's **end point** to appear at the **center of the left half of the screen**, we do NOT try to render outside the canvas. Instead: interpret "ends on the centre of the left half" as **the end flag is positioned such that, when the camera is at its final scroll-locked framing, the end flag sits at the horizontal center of the whole page** — which visually reads as roughly the boundary/left-of-center from the right canvas's own view, i.e. pinned to the **left edge of the right-half canvas** at that point in the scroll.
-- Concretely: set `ROAD_END_X` (a constant in `sceneConfig.js`) to a negative-enough value that, given `CAMERA_POSITION`/FOV, the projected screen position of the end waypoint lands at approximately the left edge of the canvas viewport at `scrollProgress = 1`. Tune this constant empirically once the scene renders (leave a comment: `// TODO(spec): tune ROAD_END_X against actual viewport — verify visually`).
-- Do not overengineer this with camera-to-DOM raycasting math for v1. A tuned constant + comment is sufficient.
+The camera is **orthographic** (see §6.9) specifically because it makes this solvable with math instead of eyeballing:
+- With an orthographic camera, a world point's horizontal screen position is `screenX = (worldPointProjectedOntoCameraRight / orthoHalfWidth) * 0.5 + 0.5` (in normalized `[0,1]` viewport space) — **this ratio does not depend on depth/distance from camera**, unlike a perspective camera. That means once the camera's position, look direction, and zoom are fixed, the mapping from world X to screen X is a single fixed linear scale for every point in the scene, always.
+- Since the canvas only covers the right half of the page, "ends at the centre of the left half" is interpreted the same way as before: the end waypoint should project to approximately the **left edge of the canvas viewport** (screen fraction ≈ 0, within the canvas's own coordinate space) at `scrollProgress = 1` — which visually reads as sitting at/near the page's horizontal center, right at the boundary with the left column.
+- Because the projection is now linear and depth-independent, `ROAD_END_X` (in `sceneConfig.js`) can be **computed directly** from the camera's orthographic half-width and position, rather than tuned by trial and error:
+  ```js
+  // Given: camera at CAMERA_POSITION looking at CAMERA_LOOKAT, orthographic zoom/frustum size ORTHO_SIZE
+  // Solve for the world-X offset (relative to camera) that projects to screen fraction ~0 (canvas left edge):
+  // targetScreenFraction = 0 → worldOffsetAlongCameraRight ≈ -orthoHalfWidth
+  // ROAD_END_X = CAMERA_LOOKAT.x - orthoHalfWidth  (adjust sign/axis depending on camera rotation — see §6.9)
+  ```
+  Implement this as a small helper (`getWorldXForScreenFraction(fraction)`) in `CameraRig.jsx` or `sceneConfig.js`, and derive `ROAD_END_X` from it rather than hardcoding a guessed number. Still expose `ROAD_END_X` as an overridable constant for manual nudging later — the formula gives a correct starting point, not a law.
+- No raycasting or DOM measurement needed for v1 — the orthographic math above is exact and cheap.
 
 ### 6.4 Road mesh — `Road.jsx`
 - Build the road visual as a `THREE.TubeGeometry` or a flat extruded ribbon (`THREE.ExtrudeGeometry` along the curve, or simpler: a series of connected flat quads following `curve.getPointAt(t)` for `t` in small steps, width = `ROAD_WIDTH`, oriented using the curve's tangent/normal).
@@ -241,8 +321,20 @@ This makes the car appear to swing its rear out as it follows the wavy curve, pe
 - Different flag color per variant (e.g. green start, checkered-pattern texture optional/skippable for v1 — flat red is an acceptable placeholder for "end").
 
 ### 6.9 Camera — `CameraRig.jsx`
-- v1: a **fixed camera** (does not move) framed to see the top of the road (start flag + car) at `scrollProgress = 0`, wide/tall enough that the road recedes into the distance. This is the simplest correct interpretation and avoids needing a moving camera synced to scroll.
-- Stretch (documented but not required for v1, mark as TODO): camera could dolly/track down the Z axis together with the car so the whole road-length is always visible without needing to zoom out extremely far. If implemented, camera Z position becomes `carPosition.z + CAMERA_FOLLOW_OFFSET_Z`, still no rotation/orbit controls exposed to the user.
+Use an **orthographic camera at an isometric-style elevated 3/4 angle**, not a perspective camera. This fits the low-poly diorama aesthetic (§5.5.2) better than a ground-level/chase view, and — more importantly — makes the end-point alignment in §6.3 solvable with exact math instead of guesswork, since orthographic screen-X doesn't depend on depth.
+
+- Use `@react-three/fiber`'s `<orthographicCamera>` (set `makeDefault`) instead of the default perspective camera.
+- All camera parameters live in `sceneConfig.js` as named, independently-tweakable constants — this is meant to be adjusted later, not hardcoded inline:
+  ```js
+  export const CAMERA_ELEVATION_DEG = 35;   // angle above horizontal, classic isometric ≈ 35.26°
+  export const CAMERA_AZIMUTH_DEG = 35;     // rotation around Y so both road sides are visible, not a flat side-on view
+  export const CAMERA_DISTANCE = 40;        // how far back the camera sits from CAMERA_LOOKAT
+  export const CAMERA_LOOKAT = new THREE.Vector3(0, 0, -10); // slightly down the road from the start, not exactly on the start flag
+  export const ORTHO_SIZE = 18;             // half-height of the orthographic frustum — this is the "zoom" knob
+  ```
+  Derive `CAMERA_POSITION` from `CAMERA_ELEVATION_DEG` / `CAMERA_AZIMUTH_DEG` / `CAMERA_DISTANCE` with basic spherical-to-cartesian math around `CAMERA_LOOKAT`, rather than hardcoding an XYZ position — that way changing the two angle constants alone re-aims the camera correctly.
+- v1: **fixed camera** — does not move or rotate as the user scrolls. The whole road, forest, and car's journey should fit inside the frustum via `ORTHO_SIZE` and `CAMERA_DISTANCE` being large enough to cover `ROAD_LENGTH`. If the road is too long to read clearly at a single fixed zoom, that's a signal to shorten `ROAD_LENGTH` rather than switch to a moving camera — keep v1 simple.
+- Stretch (documented but not required for v1, mark as TODO): camera could track the car's Z position for a longer road without needing a huge `ORTHO_SIZE`. If implemented later, keep the same fixed elevation/azimuth angles — only the `CAMERA_LOOKAT`/position's Z component would follow the car, so §6.3's math still holds since the depth-independence of orthographic projection doesn't care about a Z-only camera translation along the viewing axis.
 - No `OrbitControls` — this is a passive, scroll-driven scene, not a user-navigable 3D viewer.
 
 ---
